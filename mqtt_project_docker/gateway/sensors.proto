@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+service HealthService {
+  rpc SendHealthData (HealthData) returns (HealthResponse);
+}
+
+message HealthData {
+  string patient_id = 1;
+  string sensor_id = 2;
+  float temperature = 3;
+  float heart_rate = 4;
+  BloodPressure blood_pressure = 5;
+  Location location = 6;
+  string timestamp = 7;
+}
+
+message BloodPressure {
+  float systolic = 1;
+  float diastolic = 2;
+}
+
+message Location {
+  string site = 1;
+  string floor = 2;
+  string room = 3;
+}
+
+message HealthResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+
+

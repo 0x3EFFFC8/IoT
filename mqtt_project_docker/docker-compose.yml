@@ -1,0 +1,100 @@
+services:
+  # MQTT Broker
+  mosquitto:
+    image: eclipse-mosquitto:latest
+    container_name: mosquitto
+    ports:
+      - "1883:1883" 
+    volumes:
+      - ./mqtt-broker/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./mqtt-broker/data:/mosquitto/data          
+      - ./mqtt-broker/log:/mosquitto/log          
+    networks:
+      - health-net
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:13-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_USER: health_user
+      POSTGRES_PASSWORD: health_password
+      POSTGRES_DB: health_data
+    volumes:
+      - ./postgres/data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - health-net
+  
+  # Gateway
+  gateway:
+    container_name: gateway
+    build: ./gateway
+    ports:
+      - "5000:5000"  # REST
+      - "8765:8765"  # WebSockets
+      - "50051:50051"  # gRPC
+    depends_on:
+      mosquitto:
+        condition: service_started
+    networks:
+      - health-net
+
+  # Sensors
+  sensor-grpc:
+    build: ./sensor-grpc
+    container_name: sensor-grpc
+    depends_on:
+      gateway:
+        condition: service_started
+    networks:
+      - health-net
+    restart: unless-stopped
+
+  sensor-web:
+    build: ./sensor-webSocket
+    container_name: sensor-webSocket
+    depends_on:
+      gateway:
+        condition: service_started
+    networks:
+      - health-net
+    restart: unless-stopped
+
+  sensor-rest:
+    build: ./sensor-rest
+    container_name: sensor-rest
+    depends_on:
+      gateway:
+        condition: service_started
+    networks:
+      - health-net
+    restart: unless-stopped
+
+  # MQTT Subscriber
+  mqtt-subscriber:
+    container_name: subscriber
+    build: ./mqtt-subscriber
+    environment:
+      MQTT_BROKER: "mqtt-broker"
+      MQTT_TOPIC: "health/vitals"
+      POSTGRES_HOST: "postgres"
+      POSTGRES_DB: "health_data"
+      POSTGRES_USER: "health_user"
+      POSTGRES_PASSWORD: "health_password"
+    depends_on:
+      mosquitto:
+        condition: service_started
+      postgres:
+        condition: service_started
+    networks:
+      - health-net
+    restart: unless-stopped
+
+networks:
+  health-net:
+    name: health-net
+    driver: bridge
+    attachable: true

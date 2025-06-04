@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+websockets
+grpcio
+grpcio-tools
+paho-mqtt
+python-dateutil
+
