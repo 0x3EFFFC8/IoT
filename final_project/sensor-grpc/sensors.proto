@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+message FuelSensorData {
+  string sensor_id = 1;
+  string vehicle_id = 2;
+  string timestamp = 3;
+  float fuel_level = 5;
+  string unit = 6;
+}
+
+message FuelSensorResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+service FuelSensorService {
+  rpc SendFuelData (FuelSensorData) returns (FuelSensorResponse);
+}
+
+
+

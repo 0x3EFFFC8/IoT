@@ -1,0 +1,21 @@
+{
+  "version": "2.0",
+  "app_name": "vehiculos-api",
+  "stages": {
+    "dev": {
+      "api_gateway_stage": "proyect-Api",
+      "manage_iam_role": false,
+      "iam_role_arn": "arn:aws:iam::979265674230:role/LabRole",
+      "environment_variables": {
+        "DB_HOST": "ec2-34-238-83-207.compute-1.amazonaws.com",
+        "DB_NAME": "iot_project",
+        "DB_USER": "postgres",
+        "DB_PASS": "money",
+        "DB_PORT": "5432" ,
+        "min_connections": "1",
+        "max_connections": "5"
+      }
+    }
+  }
+
+}

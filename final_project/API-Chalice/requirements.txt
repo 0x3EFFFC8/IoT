@@ -1,0 +1,2 @@
+chalice
+psycopg2-binary

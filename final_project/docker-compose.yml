@@ -1,0 +1,50 @@
+services:
+  # Gateway
+  gateway:
+    container_name: gateway
+    build: ./gateway
+    ports:
+      - "5000:5000"  # REST
+      - "8765:8765"  # WebSockets
+      - "50051:50051"  # gRPC
+    volumes: 
+      - ./gateway:/app
+    networks:
+      - veh-net
+
+  # Sensors
+  sensor-grpc:
+    build: ./sensor-grpc
+    container_name: sensor-grpc
+    depends_on:
+      gateway:
+        condition: service_started
+    networks:
+      - veh-net
+    restart: unless-stopped
+
+  sensor-web:
+    build: ./sensor-webSocket
+    container_name: sensor-webSocket
+    depends_on:
+      gateway:
+        condition: service_started
+    networks:
+      - veh-net
+    restart: unless-stopped
+
+  sensor-rest:
+    build: ./sensor-rest
+    container_name: sensor-rest
+    depends_on:
+      gateway:
+        condition: service_started
+    networks:
+      - veh-net
+    restart: unless-stopped
+
+networks:
+  veh-net:
+    name: veh-net
+    driver: bridge
+    attachable: true
