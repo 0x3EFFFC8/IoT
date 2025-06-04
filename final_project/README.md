@@ -7,9 +7,9 @@ https://docs.google.com/document/d/1MZ8h5XanAYkXcgOK2XCBNIp3fPMgTngc8YaF_UPmnyA/
 
 ## Topicos
 
- data/{vehicle_id}/battery/{sensor_id}/metrics
- data/{vehicle_id}/airbag/{sensor_id}/events
- data/{vehicle_id}/fuel/{sensor_id}/level
+ - data/{vehicle_id}/battery/{sensor_id}/metrics
+ - data/{vehicle_id}/airbag/{sensor_id}/events
+ - data/{vehicle_id}/fuel/{sensor_id}/level
 
 ## Esquema de Base de Datos de Monitoreo de Vehículos
 ## Tabla `vehicles`
