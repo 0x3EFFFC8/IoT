@@ -2,7 +2,6 @@ import paho.mqtt.client as mqtt
 from db_handler import save_to_db
 import json
 import time
-import logging
 
 MQTT_BROKER = "mosquitto"
 MQTT_PORT = 1883

@@ -5,12 +5,9 @@ import random
 from datetime import datetime
 
 async def sensor():
-    max_retries = 5
-    retry_delay = 5
-    
-    for attempt in range(max_retries):
+    while True:
         try:
-            async with websockets.connect('ws://gateway:8765',ping_interval=20,ping_timeout=20) as websocket:
+            async with websockets.connect('ws://gateway:8765') as websocket:
                 print("[Sensor] Connected to Gateway")
                 
                 async def send_data():
@@ -38,11 +35,8 @@ async def sensor():
                 await send_data()
                 
         except Exception as e:
-            print(f"[Sensor] Attempt {attempt + 1} failed: {str(e)}")
-            if attempt < max_retries - 1:
-                await asyncio.sleep(retry_delay)
-            else:
-                raise
+            print(f"Error: {str(e)}")
+            await asyncio.sleep(5)
 
 if __name__ == "__main__":
     asyncio.run(sensor())

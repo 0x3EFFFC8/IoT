@@ -34,7 +34,8 @@ def validate_sensor_data(data):
         'sensor_id': str,
         'temperature': (int, float),
         'heart_rate': (int, float),
-        'blood_pressure': dict
+        'blood_pressure': dict,
+        'location': dict
     }
     
     for field, field_type in required_fields.items():
@@ -43,30 +44,26 @@ def validate_sensor_data(data):
         if not isinstance(data[field], field_type):
             raise TypeError(f"Invalid type for {field}. Expected {field_type}")
 
-async def publish_sensor_data(sensor_info, location_info):
+async def publish_sensor_data(data):
     try:
-        validate_sensor_data(sensor_info)
+        validate_sensor_data(data)
         
-        site_id = location_info.get("site")
-        floor_id = location_info.get("floor") 
-        room_id = location_info.get("room")
-        sensor_id = sensor_info.get("sensor_id")
-
-        if not all([site_id, floor_id, room_id, sensor_id]):
-            raise ValueError("Incomplete location information")
-
-        topic = f"data/health/{site_id}/{floor_id}/{room_id}/{sensor_id}/vitals"
+        topic = f"data/health/{data['location']['site']}/{data['location']['floor']}/{data['location']['room']}/{data['sensor_id']}/vitals"
         
         payload = {
-            "patient_id": sensor_info["patient_id"],
-            "sensor_id": sensor_id,
-            "timestamp": sensor_info.get("timestamp") or datetime.utcnow().isoformat(),
+            "patient_id": data["patient_id"],
+            "sensor_id": data["sensor_id"],
+            "timestamp": data.get("timestamp") or datetime.utcnow().isoformat(),
             "vitals": {
-                "temperature": sensor_info["temperature"],
-                "heart_rate": sensor_info["heart_rate"],
-                "blood_pressure": sensor_info["blood_pressure"]
+                "temperature": data["temperature"],
+                "heart_rate": data["heart_rate"],
+                "blood_pressure": data["blood_pressure"]
             },
-            "location": location_info
+            "location": {
+                "site": data["location"]["site"],
+                "floor": data["location"]["floor"],
+                "room": data["location"]["room"] 
+            }
         }
         
         mqtt_client.publish(topic, payload)
@@ -77,19 +74,12 @@ async def publish_sensor_data(sensor_info, location_info):
         raise
 
 # REST API Configuration
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app.add_middleware(CORSMiddleware,allow_origins=["*"],allow_methods=["*"],allow_headers=["*"],)
 
 @app.post("/api/health-data")
 async def receive_health_data(data: dict):
     try:
-        if "location" not in data:
-            raise ValueError("Missing location data")
-        await publish_sensor_data(data, data["location"])
+        await publish_sensor_data(data)
         return {"status": "success", "message": "Data forwarded to MQTT"}
     except Exception as e:
         return {"status": "error", "message": str(e)}, 400
@@ -100,11 +90,7 @@ async def health_handler(websocket):
         async for message in websocket:
             try:
                 data = json.loads(message)
-                if "location" not in data:
-                    await websocket.send(json.dumps({"error": "Missing location data"}))
-                    continue
-                    
-                await publish_sensor_data(data, data["location"])
+                await publish_sensor_data(data)
                 await websocket.send(json.dumps({"status": "processed"}))
                 
             except json.JSONDecodeError:
@@ -126,27 +112,31 @@ class HealthService(sensors_pb2_grpc.HealthServiceServicer):
                 "sensor_id": request.sensor_id,
                 "temperature": request.temperature,
                 "heart_rate": request.heart_rate,
+                "timestamp": request.timestamp or datetime.utcnow().isoformat(),
                 "blood_pressure": {
                     "systolic": request.blood_pressure.systolic,
                     "diastolic": request.blood_pressure.diastolic
                 },
-                "timestamp": request.timestamp or datetime.utcnow().isoformat()
+                "location" : {
+                    "site": request.location.site,
+                    "floor": request.location.floor,
+                    "room": request.location.room
+                }
             }
             
-            location = {
-                "site": request.location.site,
-                "floor": request.location.floor,
-                "room": request.location.room
-            }
-            
-            await publish_sensor_data(data, location)
+            await publish_sensor_data(data)
             return sensors_pb2.HealthResponse(success=True,message="Data processed successfully")
             
         except Exception as e:
-            return sensors_pb2.HealthResponse(
-                success=False,
-                message=str(e)
-            )
+            return sensors_pb2.HealthResponse(success=False,message=str(e))
+
+async def start_grpc_server():
+    server = grpc.aio.server()
+    sensors_pb2_grpc.add_HealthServiceServicer_to_server(HealthService(), server)
+    server.add_insecure_port('[::]:50051')
+    await server.start()
+    print("[gRPC] Server running on [::]:50051")
+    await server.wait_for_termination()
 
 async def run_servers():
     # Configure shutdown event
@@ -167,14 +157,6 @@ async def run_servers():
     
     await stop_event.wait()
     print("Shutting down servers gracefully...")
-
-async def start_grpc_server():
-    server = grpc.aio.server()
-    sensors_pb2_grpc.add_HealthServiceServicer_to_server(HealthService(), server)
-    server.add_insecure_port('[::]:50051')
-    await server.start()
-    print("[gRPC] Server running on [::]:50051")
-    await server.wait_for_termination()
 
 if __name__ == "__main__":
     try:
